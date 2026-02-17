@@ -18,6 +18,7 @@
 
 import { useState, useMemo } from 'react'
 import { Link } from 'react-router-dom'
+import { useBackendContext } from '@/context/BackendStatusContext'
 import {
   Search,
   ShoppingCart,
@@ -43,6 +44,17 @@ import {
   Mail,
   Heart,
   Eye,
+  Wifi,
+  WifiOff,
+  RefreshCw,
+  Server,
+  Database,
+  Activity,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  ChevronDown,
 } from 'lucide-react'
 
 /* ------------------------------------------------------------------ */
@@ -219,6 +231,8 @@ const STEPS = [
 export default function WelcomePage() {
   const [search, setSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState('all')
+  const [showStatusPanel, setShowStatusPanel] = useState(false)
+  const backend = useBackendContext()
 
   const filtered = useMemo(() => {
     return TEMPLATES.filter((t) => {
@@ -234,17 +248,25 @@ export default function WelcomePage() {
 
   return (
     <div className="min-h-screen bg-white dark:bg-slate-950 font-sans">
-      {/* ── Announcement Bar ─────────────────────────────────── */}
-      <div className="bg-indigo-600 text-white text-center text-sm py-2 px-4">
-        <span className="inline-flex items-center gap-2">
-          <Sparkles className="w-4 h-4" />
-          <span className="font-medium">VA Studio v1.0</span>
-          <span className="hidden sm:inline">— 8 production-ready templates, zero login required.</span>
-          <a href="#templates" className="underline underline-offset-2 hover:text-indigo-200 ml-1">
-            Explore now →
-          </a>
-        </span>
+      {/* ── Announcement Bar + Backend Status ────────────────── */}
+      <div className="bg-indigo-600 text-white text-sm py-2 px-4">
+        <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <span className="inline-flex items-center gap-2">
+            <Sparkles className="w-4 h-4" />
+            <span className="font-medium">VA Studio v1.0</span>
+            <span className="hidden sm:inline">— 8 production-ready templates, zero login required.</span>
+            <a href="#templates" className="underline underline-offset-2 hover:text-indigo-200 ml-1">
+              Explore now →
+            </a>
+          </span>
+          <BackendStatusBadge backend={backend} onClick={() => setShowStatusPanel((p) => !p)} />
+        </div>
       </div>
+
+      {/* ── Backend Status Panel (expandable) ─────────────────── */}
+      {showStatusPanel && (
+        <BackendStatusPanel backend={backend} onClose={() => setShowStatusPanel(false)} />
+      )}
 
       {/* ── Navbar ────────────────────────────────────────────── */}
       <nav className="sticky top-0 z-50 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800">
@@ -711,6 +733,217 @@ function TemplateCard({ template }) {
         >
           <ArrowRight className="w-4 h-4" />
         </Link>
+      </div>
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Backend Status Badge (compact, in announcement bar)                */
+/* ------------------------------------------------------------------ */
+
+const STATUS_CONFIG = {
+  checking: {
+    label: 'Checking...',
+    dotClass: 'bg-yellow-400 animate-pulse',
+    bgClass: 'bg-white/10 hover:bg-white/20',
+    Icon: RefreshCw,
+    iconClass: 'animate-spin',
+  },
+  online: {
+    label: 'Backend Online',
+    dotClass: 'bg-emerald-400',
+    bgClass: 'bg-emerald-500/20 hover:bg-emerald-500/30',
+    Icon: Wifi,
+    iconClass: '',
+  },
+  degraded: {
+    label: 'Degraded',
+    dotClass: 'bg-amber-400 animate-pulse',
+    bgClass: 'bg-amber-500/20 hover:bg-amber-500/30',
+    Icon: AlertTriangle,
+    iconClass: '',
+  },
+  offline: {
+    label: 'Backend Offline',
+    dotClass: 'bg-red-400',
+    bgClass: 'bg-red-500/20 hover:bg-red-500/30',
+    Icon: WifiOff,
+    iconClass: '',
+  },
+}
+
+function BackendStatusBadge({ backend, onClick }) {
+  const cfg = STATUS_CONFIG[backend.status]
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-medium text-white transition-all ${cfg.bgClass}`}
+      title={`Backend: ${cfg.label}${backend.latency ? ` (${backend.latency}ms)` : ''} — Click for details`}
+    >
+      <span className={`w-2 h-2 rounded-full ${cfg.dotClass}`} />
+      <cfg.Icon className={`w-3.5 h-3.5 ${cfg.iconClass}`} />
+      <span className="hidden sm:inline">{cfg.label}</span>
+      {backend.latency && backend.status === 'online' && (
+        <span className="hidden md:inline text-white/60">{backend.latency}ms</span>
+      )}
+      <ChevronDown className="w-3 h-3 text-white/60" />
+    </button>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Backend Status Panel (expanded detail view)                        */
+/* ------------------------------------------------------------------ */
+
+function BackendStatusPanel({ backend, onClose }) {
+  const { status, details, latency, lastCheck, retry } = backend
+  const cfg = STATUS_CONFIG[status]
+  const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:5112/api/v1'
+  const baseUrl = apiUrl.replace('/api/v1', '')
+
+  const services = details?.services || {}
+  const backendName = details?.app || details?.name || 'VA Studio Backend'
+  const backendVersion = details?.version || '-'
+
+  const statusColorMap = {
+    online: { bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-200 dark:border-emerald-800', text: 'text-emerald-700 dark:text-emerald-300' },
+    degraded: { bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-200 dark:border-amber-800', text: 'text-amber-700 dark:text-amber-300' },
+    offline: { bg: 'bg-red-50 dark:bg-red-950/30', border: 'border-red-200 dark:border-red-800', text: 'text-red-700 dark:text-red-300' },
+    checking: { bg: 'bg-slate-50 dark:bg-slate-900', border: 'border-slate-200 dark:border-slate-700', text: 'text-slate-600 dark:text-slate-400' },
+  }
+
+  const colors = statusColorMap[status]
+
+  return (
+    <div className={`border-b ${colors.border} ${colors.bg}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${status === 'online' ? 'bg-emerald-100 dark:bg-emerald-900/50' : status === 'offline' ? 'bg-red-100 dark:bg-red-900/50' : 'bg-amber-100 dark:bg-amber-900/50'}`}>
+              <Server className={`w-5 h-5 ${colors.text}`} />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                Backend Connection Status
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold ${colors.bg} ${colors.text} border ${colors.border}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${cfg.dotClass}`} />
+                  {cfg.label}
+                </span>
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+                Connecting to <span className="font-mono text-slate-700 dark:text-slate-300">{baseUrl}</span>
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={retry}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors"
+              title="Re-check backend status now"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              Re-check
+            </button>
+            <button
+              onClick={onClose}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-white/50 dark:hover:bg-slate-800/50 transition-colors"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Detail Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {/* Server */}
+          <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Server className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Server</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{backendName}</p>
+            <p className="text-xs text-slate-400 font-mono">v{backendVersion}</p>
+          </div>
+
+          {/* Latency */}
+          <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Activity className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Latency</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {latency ? `${latency}ms` : '—'}
+            </p>
+            <p className="text-xs text-slate-400">
+              {latency && latency < 100 ? 'Excellent' : latency && latency < 300 ? 'Good' : latency ? 'Slow' : 'N/A'}
+            </p>
+          </div>
+
+          {/* Database */}
+          <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Database className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Database</span>
+            </div>
+            {status === 'offline' ? (
+              <>
+                <p className="text-sm font-semibold text-red-600 dark:text-red-400">Unreachable</p>
+                <p className="text-xs text-slate-400">Server down</p>
+              </>
+            ) : (
+              <>
+                <p className={`text-sm font-semibold ${services.database ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'}`}>
+                  {services.database ? 'Connected' : 'Disconnected'}
+                </p>
+                <p className="text-xs text-slate-400">PostgreSQL</p>
+              </>
+            )}
+          </div>
+
+          {/* Last Check */}
+          <div className="p-3 rounded-xl bg-white/60 dark:bg-slate-900/60 border border-slate-200/50 dark:border-slate-700/50">
+            <div className="flex items-center gap-2 mb-1.5">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Last Check</span>
+            </div>
+            <p className="text-sm font-semibold text-slate-900 dark:text-white">
+              {lastCheck ? new Date(lastCheck).toLocaleTimeString() : '—'}
+            </p>
+            <p className="text-xs text-slate-400">Auto-polls every {status === 'offline' ? '10s' : '30s'}</p>
+          </div>
+        </div>
+
+        {/* Services row (when online/degraded) */}
+        {status !== 'offline' && status !== 'checking' && Object.keys(services).length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {Object.entries(services).map(([name, healthy]) => (
+              <span
+                key={name}
+                className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+                  healthy
+                    ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800'
+                    : 'bg-red-50 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800'
+                }`}
+              >
+                {healthy ? <CheckCircle2 className="w-3 h-3" /> : <XCircle className="w-3 h-3" />}
+                {name}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {/* Offline help message */}
+        {status === 'offline' && (
+          <div className="mt-3 p-3 rounded-xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+            <p className="text-xs text-red-700 dark:text-red-300 font-medium mb-1">Cannot reach the backend server</p>
+            <p className="text-xs text-red-600/80 dark:text-red-400/80 leading-relaxed">
+              Make sure the FastAPI server is running at <span className="font-mono font-semibold">{baseUrl}</span>.
+              Start it with: <code className="px-1.5 py-0.5 rounded bg-red-100 dark:bg-red-900/40 font-mono text-[11px]">python -m uvicorn app.app:app --port 5112 --reload</code>
+            </p>
+          </div>
+        )}
       </div>
     </div>
   )

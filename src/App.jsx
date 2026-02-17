@@ -7,19 +7,27 @@
  *   /                          → Welcome page (template gallery + hero)
  *   /preview/:templateId       → Live template preview (ecommerce, saas, portfolio, etc.)
  *
+ * Backend connectivity:
+ *   On mount, the app calls healthApi.check() to verify the FastAPI backend
+ *   at http://localhost:5112 is running. A persistent status badge in the
+ *   navbar shows "Online", "Offline", or "Degraded" in real-time.
+ *   The status is polled every 30s (online) or 10s (offline).
+ *
  * All 8 templates are loaded dynamically via React.lazy + code-splitting.
  * The welcome page serves as the entry point where users browse templates,
  * chat with AI, and request customizations — all without signing in.
  *
  * @module App
- * @version 1.0.0
+ * @version 1.1.0
  * @see {@link ../templates/} for individual template implementations
  * @see {@link ./pages/WelcomePage.jsx} for the template gallery
+ * @see {@link ./hooks/useBackendStatus.js} for health-check logic
  * @see {@link ./lib/api.js} for backend API client
  */
 
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider, useParams, Link } from 'react-router-dom'
+import { BackendStatusProvider } from './context/BackendStatusContext'
 import WelcomePage from './pages/WelcomePage'
 
 /* ------------------------------------------------------------------ */
@@ -101,8 +109,15 @@ const router = createBrowserRouter([
 
 /**
  * Root application component.
- * Renders the router which handles all page navigation.
+ *
+ * Wraps the entire app in BackendStatusProvider so every page
+ * can access the real-time backend connectivity status via
+ * useBackendContext().
  */
 export default function App() {
-  return <RouterProvider router={router} />
+  return (
+    <BackendStatusProvider>
+      <RouterProvider router={router} />
+    </BackendStatusProvider>
+  )
 }

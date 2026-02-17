@@ -1,6 +1,14 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5112/api/v1'
+/**
+ * API base URL resolution:
+ *
+ * In development, Vite proxies /api/* → http://localhost:5112/api/*
+ * so we use a relative path "/api/v1" to avoid CORS issues.
+ *
+ * In production, set VITE_API_URL to the full backend URL.
+ */
+const API_URL = import.meta.env.VITE_API_URL || '/api/v1'
 
 /**
  * Axios instance pre-configured for the VA Studio backend.
@@ -12,10 +20,13 @@ const api = axios.create({
 })
 
 // ── Health API ────────────────────────────────────────────
+//
+// The health routes live under the /api/v1 prefix (loaded by service_loader).
+// Actual endpoints: GET /api/v1/health, GET /api/v1/health/ready
 
 export const healthApi = {
-  check: () => axios.get(`${API_URL.replace('/api/v1', '')}/health`),
-  ready: () => axios.get(`${API_URL.replace('/api/v1', '')}/health/ready`),
+  check: () => api.get('/health'),
+  ready: () => api.get('/health/ready'),
 }
 
 // ── Templates API (Public) ────────────────────────────────
