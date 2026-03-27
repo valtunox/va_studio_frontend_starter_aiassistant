@@ -1,7 +1,7 @@
 /**
  * AI Assistant Sidebar Component
  * General-purpose navigation with chat history, AI agents, and connectors.
- * No HR/recruitment content. No backend calls.
+ * No HR/cloudsystem content. No backend calls.
  */
 import React, { useState, useEffect, useRef } from 'react'
 import {
