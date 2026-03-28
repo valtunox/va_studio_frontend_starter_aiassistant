@@ -1,11 +1,11 @@
 /**
  * VA Studio Frontend Starter - Main Application Entry Point
  *
- * This starter app now defaults to the E-commerce template as the main interface.
+ * This starter app now defaults to the Diet template as the main interface.
  * The welcome/showcase functionality has been moved to va_studio_ai_builder_frontend.
  *
  * Routes:
- *   /                          → E-commerce template (default)
+ *   /                          → Diet template (default)
  *   /preview/:templateId       → Live template preview (saas, portfolio, etc.)
  *
  * Backend connectivity:
@@ -123,12 +123,12 @@ function ConnectivityBanner() {
 /* ------------------------------------------------------------------ */
 
 /* ------------------------------------------------------------------ */
-/*  Home Page (E-commerce Template with Connectivity Banner)           */
+/*  Home Page (Diet Template with Connectivity Banner)                 */
 /* ------------------------------------------------------------------ */
 
 function HomePage() {
   const { isDark } = useTheme()
-  const [activeTemplate, setActiveTemplate] = useState('ecommerce')
+  const [activeTemplate, setActiveTemplate] = useState('diet')
   const ActiveComponent = templates[activeTemplate]
 
   // onNavigate lets login/register switch templates
@@ -266,7 +266,7 @@ function TemplatePreview() {
 /* ------------------------------------------------------------------ */
 /*  Router                                                             */
 /*                                                                     */
-/*  /                          → E-commerce template (default)         */
+/*  /                          → Diet template (default)               */
 /*  /preview/:templateId       → Live preview of a specific template   */
 /*  /templates/:templateId     → Alternative template route            */
 /* ------------------------------------------------------------------ */
